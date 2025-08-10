@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node app.js",
   "dev": "nodemon app.js",
-  "build": "echo \"No build step required for this pure Node.js (ESM) app\""
+  "build": "node vercel-prepare.cjs || echo \"Build step skipped (fallback).\"",
+  "vercel-build": "npm run build"
   },
   "dependencies": {
     "@arcjet/node": "^1.0.0-beta.2",
