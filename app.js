@@ -29,10 +29,47 @@ app.get('/', (req, res) => {
   res.send('Welcome to the Subscription Tracker API!');
 });
 
-app.listen(PORT, async () => {
-  console.log(`Subscription Tracker API is running on http://localhost:${PORT}`);
+// Server bootstrap with automatic port fallback if the desired one is busy.
+const BASE_PORT = Number(PORT) || 5500;
+const MAX_PORT_ATTEMPTS = 5; // try up to 5 incremental ports
 
-  await connectToDatabase();
-});
+async function startServer(port = BASE_PORT, attempt = 1) {
+  try {
+    const server = app.listen(port, async () => {
+      console.log(`Subscription Tracker API listening on http://localhost:${port}`);
+      if (attempt > 1) {
+        console.log(`(Original requested port ${BASE_PORT} was busy; using fallback attempt #${attempt})`);
+      }
+      try {
+        await connectToDatabase();
+      } catch (dbErr) {
+        console.error('Database connection failed:', dbErr.message);
+      }
+    });
+
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        if (attempt < MAX_PORT_ATTEMPTS) {
+          const nextPort = port + 1;
+            console.warn(`Port ${port} in use. Retrying with port ${nextPort} (attempt ${attempt + 1}/${MAX_PORT_ATTEMPTS})...`);
+          setTimeout(() => startServer(nextPort, attempt + 1), 400);
+        } else {
+          console.error(`All attempted ports (${BASE_PORT} - ${port}) are in use. Aborting.`);
+          process.exit(1);
+        }
+      } else {
+        console.error('Server error:', err);
+        process.exit(1);
+      }
+    });
+  } catch (err) {
+    console.error('Unexpected startup error:', err);
+    process.exit(1);
+  }
+}
+
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 export default app;
